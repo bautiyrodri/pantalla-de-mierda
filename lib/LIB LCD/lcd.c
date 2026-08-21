@@ -1,4 +1,6 @@
 #include "lcd.h"
+volatile int est_RS;
+int row_shift[2]={0x00,0x40};
 void lcd_init (lcd_t* a){
 if(a->puerto_lcd == GPIOA) RCC->APB2ENR|=RCC_APB2ENR_IOPAEN;
 else if(a->puerto_lcd == GPIOB) RCC->APB2ENR|=RCC_APB2ENR_IOPBEN;
@@ -12,8 +14,8 @@ if(a->pin_lcd[i]<9){
             a->puerto_lcd -> CRL &=~ (0xF<<a->pin_lcd[i]*4);
             a->puerto_lcd -> CRL |=  (0x1<<a->pin_lcd[i]*4);
 }else{
-            a->puerto_lcd ->CRH &=~ (0XF<<a->(pin_lcd[i]%8)*4);
-            a->puerto_lcd ->CRH |= (0X1<<a->(pin_lcd[i]%8)*4);
+            a->puerto_lcd ->CRH &=~ (0XF<<(a->pin_lcd[i]%8)*4);
+            a->puerto_lcd ->CRH |= (0X1<<(a->pin_lcd[i]%8)*4);
 }
  }
 if(a->puerto_RS_RW == GPIOA) RCC->APB2ENR|=RCC_APB2ENR_IOPAEN;
@@ -29,58 +31,51 @@ else if(a->puerto_RS_RW == GPIOE) RCC->APB2ENR|=RCC_APB2ENR_IOPEEN;
             a->puerto_RS_RW->CRL &=~ (0XF<<a->pin_RW*4);
             a->puerto_RS_RW->CRL |= (0X1<<a->pin_RW*4);
 }
-int lcd_clear(lcd_t* b){
-    b->puerto_RS_RW -> BSRR |= (1<<(b->pin_RS)+16);
-    b->puerto_lcd -> BSRR |= (1<<b->pin_lcd[0]);
-    for(int i=1;i<8;i++){
-        b->puerto_lcd-> BSRR |= (1<<(b->pin_lcd[i])+16);
-    }
-}
-int lcd_send(lcd_t*lcd,dato,char_cmd){
-if(char_cmd)lcd->puerto_RS_RW->BSRR|=(1<<pin_RS);
-else lcd->puerto_RS_RW->BSRR|=(1<<pin_RS+16);
-lcd->puerto_RS_RW->BSRR|=(1<<pin_RW+16);
-for(int i=0;i<8;i++){
-    if(dato&(1<<i)){
-        lcd->puerto_RS_RW->BSRR|=(1<<lcd->d[i]);
-        else lcd->puerto_RS_RW->BSRR|=(1<<(lcd->d[i]+16));
-    }
-}
-}
-
-void lcd_setcursor(lcd_t*s , int col,int row){                //col y row en el main.c
+int lcd_clear(lcd_t* lcd){
+     uint8_t com=0x51;
+    lcd_send(lcd,com,0);
     
 }
+int lcd_send(lcd_t*lcd,uint8_t dato,int est_RS){
+lcd->puerto_RS_RW->BSRR|=(1<<(lcd->pin_RW+16));
+if(est_RS)lcd->puerto_RS_RW->BSRR|=(1<<(lcd->pin_RS));
+else lcd->puerto_RS_RW->BSRR|=(1<<(lcd->pin_RS+16));
+for(int i=0;i<8;i++){
+    if(dato&(1<<i))lcd->puerto_RS_RW->BSRR|=(1<<lcd->d[i]);
+        else lcd->puerto_RS_RW->BSRR|=(1<<(lcd->d[i]+16));
+    
+}
+}
 
-void lcd_print(lcd_t* s ,char *str){
-    while(str){
-        funcion_mandar(*str++);
+void lcd_setcursor(lcd_t*lcd,int row,int col){ 
+    uint8_t com=col+row_shift[row];
+    lcd_send(lcd,com,0);
+}
+
+void lcd_print(lcd_t* lcd ,char *str){
+   {
+    while(*str){
+        lcd_send(lcd, *str, 1);
+        str++;
     }
-
+}
 }
 
-void lcd_scrollDisplayLeft(lcd_t* s){
-    s->puerto_RS_RW -> BSRR |= (1<<(s->pin_RS)+16);
-    s->puerto_RS_RW -> BSRR |= (1<<(s->pin_RS)+16);
-    for(int i=0;i<4;i++){
-        s->puerto_datos -> BSRR |= (1<<(s->pin_datos[i])+16);
-    };
-    s->puerto_datos -> BSRR |= (1<<s->pin_datos[4]);
-    for(int i=5;i<7;i++){
-        s->puerto_datos -> BSRR |= (1<<(s->pin_datos[i])+16);
-    };
+void lcd_scrollDisplayLeft(lcd_t* lcd){
+    uint8_t com=0x55;
+    lcd_send(lcd,com,0);
 }
 
-void lcd_scrollDisplayRight(configuracion_t*);{
-    s->puerto_otros -> BSRR |= (1<<(s->registro)+16);
-    s->puerto_otros -> BSRR |= (1<<(s->registro)+16);
-    for(int i=0;i<2;i++){
-        s->puerto_datos -> BSRR |= (1<<(s->pin_datos[i])+16);
-    };
-    s->puerto_datos -> BSRR |= (1<<s->pin_datos[2]);
-    s->puerto_datos -> BSRR |= (1<<s->pin_datos[4]);
-    for(int i=5;i<7;i++){
-        s->puerto_datos -> BSRR |= (1<<(s->pin_datos[i])+16);
-    };
+void lcd_scrollDisplayRight(lcd_t*lcd){
+       uint8_t com=0x56;
+    lcd_send(lcd,com,0);
+}
+void lcd_backlight(lcd_t*lcd){
+        uint8_t com=0x41;
+    lcd_send(lcd,com,0);
+}
+void lcd_noBacklight(lcd_t*lcd){
+        uint8_t com=0x42;
+        lcd_send(lcd,com,0);
 }
 
